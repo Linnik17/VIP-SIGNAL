@@ -1,10 +1,10 @@
 import numpy as np
 
-def analyze(history):
-    if len(history) < 10:
-        return "⏳ Нужно минимум 10 значений"
+def predict(h):
+    if len(h) < 10:
+        return None
 
-    last = history[-20:]
+    last = h[-30:]
 
     avg = np.mean(last)
     std = np.std(last)
@@ -12,51 +12,50 @@ def analyze(history):
     low = sum(x < 1.5 for x in last)
     high = sum(x > 3 for x in last)
 
-    risk = min(95, int(std * 40))
-    chance = max(5, 100 - risk)
+    risk = min(95, int(std * 45))
+    confidence = max(5, 100 - risk)
 
-    if low >= 6:
+    return {
+        "avg": avg,
+        "risk": risk,
+        "confidence": confidence,
+        "low": low,
+        "high": high
+    }
+
+
+def format_prediction(p):
+    if not p:
+        return "⏳ недостаточно данных"
+
+    if p["low"] >= 6:
         return f"""
-💎 VIP SIGNAL
+💎 ELITE SIGNAL
 
-🔥 серия низких
-🎯 шанс роста: {chance}%
-📈 цель: 2x–5x
-📊 риск: {risk}%
+🔥 накопление низких
+🎯 шанс: {p['confidence']}%
+📈 2x–5x
+📊 риск: {p['risk']}%
 """
 
-    if high >= 5:
+    if p["high"] >= 5:
         return f"""
-⚠️ VIP ALERT
+⚠️ RISK ZONE
 
-📉 перегрев рынка
-🚫 вход опасен
-📊 риск: {risk}%
+🚫 пропуск
+📊 риск: {p['risk']}%
 """
 
-    if avg < 2:
+    if p["avg"] < 2:
         return f"""
-📊 VIP MODE
+📊 PRO SIGNAL
 
-📈 спокойный рынок
-🎯 рост 2x–3x возможен
-📊 риск: {risk}%
+📈 рост возможен
+📊 риск: {p['risk']}%
 """
 
     return f"""
-⚖️ NEUTRAL
+⚖️ WAIT ZONE
 
-⏳ нет сигнала
-📊 риск: {risk}%
+📊 риск: {p['risk']}%
 """
-
-
-def stats(history):
-    last = history[-30:]
-    total = len(last)
-
-    return {
-        "low": round(sum(x < 1.5 for x in last)/total*100, 1),
-        "mid": round(sum(1.5 <= x <= 3 for x in last)/total*100, 1),
-        "high": round(sum(x > 3 for x in last)/total*100, 1),
-    }
