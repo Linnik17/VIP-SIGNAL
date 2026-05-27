@@ -12,11 +12,11 @@ CREATE TABLE IF NOT EXISTS history (
 conn.commit()
 
 
-def add_value(v: float):
+def add(v):
     cur.execute("INSERT INTO history (value) VALUES (?)", (v,))
     conn.commit()
 
 
-def get_history(limit=200):
+def get(limit=200):
     cur.execute("SELECT value FROM history ORDER BY id DESC LIMIT ?", (limit,))
-    return [x[0] for x in reversed(cur.fetchall())]
+    return list(reversed([x[0] for x in cur.fetchall()]))
