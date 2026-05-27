@@ -1,73 +1,84 @@
 import asyncio
-import logging
 import re
 
 from aiogram import Bot, Dispatcher, types
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 from config import TOKEN
-from db import add, get
-from engine import analyze, stats
-from signal import generate_signal
+from storage import add, get
+from engine import predict, format_prediction
+from users import set_user, get_user, is_owner
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
+# 💎 меню
 menu = InlineKeyboardMarkup(inline_keyboard=[
-    [InlineKeyboardButton(text="💎 Анализ", callback_data="a")],
-    [InlineKeyboardButton(text="📊 Статистика", callback_data="s")],
-    [InlineKeyboardButton(text="⚡ AUTO SIGNAL", callback_data="sig")],
+    [InlineKeyboardButton(text="⚡ SIGNAL", callback_data="sig")],
+    [InlineKeyboardButton(text="📊 GRAPH", callback_data="graph")],
+    [InlineKeyboardButton(text="🔐 ACCESS", callback_data="access")],
 ])
 
-def nums(text):
-    return [float(x) for x in re.findall(r"\d+(\.\d+)?", text)]
+def parse(text):
+    return [float(x) for x in re.findall(r"\d+\.?\d*", text)]
 
 
+# ✨ АНИМАЦИЯ
+async def loading(msg):
+    for i in range(3):
+        await asyncio.sleep(0.3)
+        await msg.edit_text("⏳ анализ" + "." * (i + 1))
+
+
+# 🚀 START
 @dp.message()
 async def msg(m: types.Message):
+    uid = m.from_user.id
+
     if m.text == "/start":
-        await m.answer("💎 VIP CRASH BOT ONLINE", reply_markup=menu)
+        await m.answer("💎 VIP SYSTEM ONLINE", reply_markup=menu)
         return
 
-    n = nums(m.text)
+    nums = parse(m.text)
 
-    if n:
-        for i in n:
-            add(i)
+    if nums:
+        for n in nums:
+            add(n)
 
-        await m.answer(analyze(get()), reply_markup=menu)
+        p = predict(get())
+
+        await m.answer(format_prediction(p), reply_markup=menu)
         return
 
-    await m.answer("Отправь коэффициенты", reply_markup=menu)
+    await m.answer("Отправь коэффициенты")
 
 
+# 🎛 CALLBACKS
 @dp.callback_query()
 async def cb(c: types.CallbackQuery):
-    h = get()
-
-    if c.data == "a":
-        await c.message.answer(analyze(h))
-
-    if c.data == "s":
-        st = stats(h)
-        await c.message.answer(f"""
-📊 STAT
-
-🔵 low: {st['low']}%
-🟡 mid: {st['mid']}%
-🔴 high: {st['high']}%
-""")
+    uid = c.from_user.id
 
     if c.data == "sig":
-        await c.message.answer(generate_signal())
+        await c.message.answer("⚡ генерирую сигнал...")
+        await asyncio.sleep(1)
+        await c.message.answer(format_prediction(predict(get())))
+
+    # 📊 график (заглушка под будущий matplotlib)
+    if c.data == "graph":
+        await c.message.answer("📊 график пока подключается...")
+
+    # 🔐 VIP выдача (ТОЛЬКО ВЛАДЕЛЕЦ)
+    if c.data == "access":
+        if is_owner(uid):
+            set_user(uid, "ELITE")
+            await c.message.answer("💎 доступ выдан: ELITE")
+        else:
+            await c.message.answer("🚫 нет доступа")
 
     await c.answer()
 
 
 async def main():
-    logging.basicConfig(level=logging.INFO)
     await dp.start_polling(bot)
 
-
-if __name__ == "__main__":
-    asyncio.run(main())
+asyncio.run(main())
