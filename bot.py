@@ -6,37 +6,35 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 from config import TOKEN
 from storage import add, get
-from engine import predict, format_prediction
+from engine import analyze
 from users import set_user, get_user, is_owner
+from graphics import make_graph
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
-# 💎 меню
 menu = InlineKeyboardMarkup(inline_keyboard=[
     [InlineKeyboardButton(text="⚡ SIGNAL", callback_data="sig")],
     [InlineKeyboardButton(text="📊 GRAPH", callback_data="graph")],
-    [InlineKeyboardButton(text="🔐 ACCESS", callback_data="access")],
+    [InlineKeyboardButton(text="👑 ADMIN", callback_data="admin")]
 ])
+
 
 def parse(text):
     return [float(x) for x in re.findall(r"\d+\.?\d*", text)]
 
 
-# ✨ АНИМАЦИЯ
-async def loading(msg):
-    for i in range(3):
-        await asyncio.sleep(0.3)
-        await msg.edit_text("⏳ анализ" + "." * (i + 1))
+# ⏳ fake animation
+async def typing(msg):
+    await asyncio.sleep(0.5)
 
 
-# 🚀 START
 @dp.message()
 async def msg(m: types.Message):
     uid = m.from_user.id
 
     if m.text == "/start":
-        await m.answer("💎 VIP SYSTEM ONLINE", reply_markup=menu)
+        await m.answer("💎 ULTRA VIP PLATFORM", reply_markup=menu)
         return
 
     nums = parse(m.text)
@@ -45,9 +43,7 @@ async def msg(m: types.Message):
         for n in nums:
             add(n)
 
-        p = predict(get())
-
-        await m.answer(format_prediction(p), reply_markup=menu)
+        await m.answer(analyze(get()) or "⏳ недостаточно данных", reply_markup=menu)
         return
 
     await m.answer("Отправь коэффициенты")
@@ -58,22 +54,22 @@ async def msg(m: types.Message):
 async def cb(c: types.CallbackQuery):
     uid = c.from_user.id
 
+    # ⚡ SIGNAL
     if c.data == "sig":
-        await c.message.answer("⚡ генерирую сигнал...")
-        await asyncio.sleep(1)
-        await c.message.answer(format_prediction(predict(get())))
+        await c.message.answer(analyze(get()) or "⏳ нет сигнала")
 
-    # 📊 график (заглушка под будущий matplotlib)
+    # 📊 GRAPH
     if c.data == "graph":
-        await c.message.answer("📊 график пока подключается...")
+        path = make_graph(get())
+        await c.message.answer_photo(types.FSInputFile(path))
 
-    # 🔐 VIP выдача (ТОЛЬКО ВЛАДЕЛЕЦ)
-    if c.data == "access":
+    # 👑 ADMIN PANEL
+    if c.data == "admin":
         if is_owner(uid):
             set_user(uid, "ELITE")
-            await c.message.answer("💎 доступ выдан: ELITE")
+            await c.message.answer("👑 ADMIN ACCESS GRANTED\n💎 YOU ARE OWNER")
         else:
-            await c.message.answer("🚫 нет доступа")
+            await c.message.answer("🚫 NO ACCESS")
 
     await c.answer()
 
